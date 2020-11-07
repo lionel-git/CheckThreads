@@ -9,13 +9,17 @@ namespace CheckThreads
 {
     public class ThreadInfo
     {
-        const string fmt      = @"hh\:mm\:ss";
+        const string fmt = @"hh\:mm\:ss";
         const string fmtDelta = @"ss\:ffffff";
 
-        public int Id { get; set; }
+        public static bool DisplayState { get; set; }
 
+        public int Id { get; set; }
         public TimeSpan TotalProcessorTime { get; set; }
 
+        public ThreadState ThreadState { get;set;}
+        public string WaitReason { get; set; }
+        
         public DateTime TimeStamp { get; set; }
 
         // For diff time
@@ -28,6 +32,9 @@ namespace CheckThreads
             Id = processThread.Id;
             TotalProcessorTime = processThread.TotalProcessorTime;
             TimeStamp = DateTime.Now;
+            ThreadState = processThread.ThreadState;
+            if (processThread.ThreadState == ThreadState.Wait)
+                WaitReason = processThread.WaitReason.ToString();
         }
 
         public void DiffPrevious(ThreadInfo previous)
@@ -47,6 +54,12 @@ namespace CheckThreads
             {
                 var loadStr = $"{Load * 100.0:0.0}";
                 sb.Append($" L:{loadStr,5}%");
+            }
+            if (DisplayState)
+            {
+                sb.Append($" S:{ThreadState}");
+                if (!string.IsNullOrEmpty(WaitReason))
+                    sb.Append($" W:{WaitReason}");
             }
             return sb.ToString();            
         }

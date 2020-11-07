@@ -8,8 +8,10 @@ namespace CheckThreads
         {
             if (args.Length>0)
             {
+                ThreadInfo.DisplayState = true;
                 var threadChecker = new ThreadChecker(args[0]);
                 threadChecker.Check();
+
             }
             else
                 Console.WriteLine("Syntax: prg <pid> or <program name>");
