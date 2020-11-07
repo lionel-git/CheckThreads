@@ -110,7 +110,9 @@ DWORD DumpStackTrace(EXCEPTION_POINTERS* ep)
     // Load the symbols:
     // WARNING: You'll need to replace <pdb-search-path> with either NULL
     // or some folder where your clients will be able to find the .pdb file.
-    if (!SymInitialize(process,"G:\\my_projects\\CheckThreads\\x64\\Debug\\project1.pdb", false))
+    //const char* pdb_file = "G:\\my_projects\\CheckThreads\\x64\\Debug";
+    const char *pdb_file = nullptr;
+    if (!SymInitialize(process, pdb_file, false))
         throw(std::logic_error("Unable to initialize symbol handler"));
     DWORD symOptions = SymGetOptions();
     symOptions |= SYMOPT_LOAD_LINES | SYMOPT_UNDNAME;
