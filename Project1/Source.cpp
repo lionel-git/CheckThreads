@@ -28,11 +28,12 @@ struct module_data {
 
 
 DWORD DumpStackTrace(EXCEPTION_POINTERS* ep);
-extern void YourMessage(const char* title, const char* fmt, ...);// Replace this with your own function
+extern void YourMessage(const char* title, const char* fmt, const char* msg);// Replace this with your own function
 
-void YourMessage(const char* title, const char* fmt, ...)
+void YourMessage(const char* title, const char* fmt, const char*msg)
 {
     std::cout << title << std::endl;
+    printf(fmt, msg);
 }
 
 
@@ -109,7 +110,7 @@ DWORD DumpStackTrace(EXCEPTION_POINTERS* ep)
     // Load the symbols:
     // WARNING: You'll need to replace <pdb-search-path> with either NULL
     // or some folder where your clients will be able to find the .pdb file.
-    if (!SymInitialize(process,"toto", false))
+    if (!SymInitialize(process,"G:\\my_projects\\CheckThreads\\x64\\Debug\\project1.pdb", false))
         throw(std::logic_error("Unable to initialize symbol handler"));
     DWORD symOptions = SymGetOptions();
     symOptions |= SYMOPT_LOAD_LINES | SYMOPT_UNDNAME;
@@ -155,11 +156,11 @@ DWORD DumpStackTrace(EXCEPTION_POINTERS* ep)
             else builder << "\n";
             if (fnName == "main")
                 break;
-            if (fnName == "RaiseException") {
-                // This is what we get when compiled in Release mode:
-                YourMessage("Crash", "Your program has crashed.\n\n");
-                return EXCEPTION_EXECUTE_HANDLER;
-            }
+            //if (fnName == "RaiseException") {
+            //    // This is what we get when compiled in Release mode:
+            //    YourMessage("Crash", "Your program has crashed.\n\n", builder.str().c_str());
+            //    return EXCEPTION_EXECUTE_HANDLER;
+            //}
         }
         else
             builder << "(No Symbols: PC == 0)";
@@ -182,11 +183,24 @@ DWORD DumpStackTrace(EXCEPTION_POINTERS* ep)
 //int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance,
 //    LPSTR args, int nCmdShow)
 
+void test_crash0()
+{
+    throw std::runtime_error("Toto");
+}
+
+
+void test_crash()
+{
+    std::cout << "in level 1" << std::endl;
+    test_crash0();
+}
+
 int main(int argc, char **argv)
 {
     __try {
         // <Your code goes here>
         printf("Coucou");
+        test_crash();
 
         int f = 0;
         f = 7 / f;   // Trigger a divide-by-zero exception
