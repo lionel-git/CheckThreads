@@ -10,12 +10,12 @@ namespace CheckThreads
     public class ThreadInfo
     {
         const string fmt = @"hh\:mm\:ss";
-        const string fmtDelta = @"ss\:ffffff";
 
         public static bool DisplayState { get; set; }
 
         public int Id { get; set; }
         public TimeSpan TotalProcessorTime { get; set; }
+        public IntPtr StartAddress { get; set; }
 
         public ThreadState ThreadState { get;set;}
         public string WaitReason { get; set; }
@@ -35,6 +35,7 @@ namespace CheckThreads
             ThreadState = processThread.ThreadState;
             if (processThread.ThreadState == ThreadState.Wait)
                 WaitReason = processThread.WaitReason.ToString();
+            StartAddress = processThread.StartAddress;
         }
 
         public void DiffPrevious(ThreadInfo previous)
@@ -51,10 +52,7 @@ namespace CheckThreads
             sb.Append($"Id:{Id,5}");
             sb.Append($" T:{TotalProcessorTime.ToString(fmt)}");
             if (IsDiffSet)
-            {
-                var loadStr = $"{Load * 100.0:0.0}";
-                sb.Append($" L:{loadStr,5}%");
-            }
+                sb.Append($" L:{Helpers.FD(Load*100.0)}%");
             if (DisplayState)
             {
                 sb.Append($" S:{ThreadState}");
