@@ -10,6 +10,7 @@ public:
 	~process_checker();
 
 	void show_processes(const std::string& filter);
+	void check_thread(int thread_id, HANDLE handle_process);
 
 private:
 	void check_error(const std::string& msg);
