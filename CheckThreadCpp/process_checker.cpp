@@ -73,6 +73,12 @@ void process_checker::list_threads(int process_pid)
     if (handle_process == 0)
     {
         check_error("Open process");
+        return;
+    }
+
+    if (!SymInitialize(handle_process, "C:\\Program Files(x86)\\Arena\\Engines\\Stockfish", true))
+    {
+        check_error("SymInitialize");
     }
 
     // Fill in the size of the structure before using it. 
@@ -152,6 +158,25 @@ void process_checker::check_thread(int thread_id, HANDLE handle_process)
         std::cout << "frame.AddrPC = " << /*frame.AddrPC.Mode << " " << frame.AddrPC.Segment << " " <<*/ frame.AddrPC.Offset 
             /*<< " V: " << frame.Virtual*/ << std::endl;
         std::cout << std::dec;
+
+        int maxNameLength = 1024;
+        IMAGEHLP_SYMBOL64* p = (IMAGEHLP_SYMBOL64 *)new char[sizeof(IMAGEHLP_SYMBOL64) + maxNameLength];
+        memset(p, 0, sizeof(IMAGEHLP_SYMBOL64) + maxNameLength);
+        p->MaxNameLength = maxNameLength;
+        p->SizeOfStruct = sizeof(IMAGEHLP_SYMBOL64);        
+        DWORD64 displacement = 0;
+        if (SymGetSymFromAddr64(handle_process, frame.AddrPC.Offset, &displacement, p) == false)
+        {
+            check_error("SymGetSymFromAddr64");
+        }
+        else
+        {
+            std::cout << "Name: " << p->Name;
+            std::cout << std::hex;
+            std::cout << "+0x" << frame.AddrPC.Offset - p->Address << std::endl;
+            std::cout << std::dec;
+        }
+        delete [] p;
     }
     while (frame.AddrReturn.Offset != 0);
 
@@ -176,16 +201,13 @@ process_checker::check_error(const std::string& msg)
     eNum = GetLastError();
     FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
         NULL, eNum,
-        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
+        MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), // Default language
         sysMsg, 256, NULL);
 
-    // Trim the end of the line and terminate it with a null
-    p = sysMsg;
-    while ((*p > 31) || (*p == 9))
-        ++p;
-    do { *p-- = 0; } while ((p >= sysMsg) &&
-        ((*p == '.') || (*p < 33)));
+	std::string sys_msg(sysMsg);
+	if (sys_msg.length() > 2)
+		sys_msg = sys_msg.substr(0, sys_msg.length() - 2);
 
     // Display the message
-    std::cout << "\n  WARNING: " << msg << " failed with error " << eNum << " (" << sysMsg << ")" << std::endl;
+    std::cout << "   WARNING: " << msg << " failed with error " << eNum << " (" << sys_msg << ")" << std::endl;
 }
