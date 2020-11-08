@@ -40,6 +40,8 @@ process_checker::~process_checker()
 void
 process_checker::show_processes(const std::string& filter)
 {
+    std::cout << "Filering for processes: '" << filter << "'" << std::endl;
+
     PROCESSENTRY32 pe32;
     // Set the size of the structure before using it.
     pe32.dwSize = sizeof(PROCESSENTRY32);
