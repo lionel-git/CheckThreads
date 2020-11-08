@@ -3,10 +3,11 @@
 #include <TlHelp32.h>
 #include <iostream>
 
-#include <dbghelp.h>
+#include <imagehlp.h>
 
 #pragma comment(lib, "psapi.lib")
 #pragma comment(lib, "dbghelp.lib")
+
 
 process_checker::process_checker()
 {
@@ -148,8 +149,8 @@ void process_checker::check_thread(int thread_id, HANDLE handle_process)
         }
 
         std::cout << std::hex;        
-        std::cout << "frame.AddrPC = " << frame.AddrPC.Mode << " " << frame.AddrPC.Segment << " " << frame.AddrPC.Offset 
-            << " V: " << frame.Virtual << std::endl;
+        std::cout << "frame.AddrPC = " << /*frame.AddrPC.Mode << " " << frame.AddrPC.Segment << " " <<*/ frame.AddrPC.Offset 
+            /*<< " V: " << frame.Virtual*/ << std::endl;
         std::cout << std::dec;
     }
     while (frame.AddrReturn.Offset != 0);
