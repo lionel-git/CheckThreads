@@ -82,11 +82,13 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="module_info.cpp" />
     <ClCompile Include="process_checker.cpp" />
+    <ClCompile Include="time_info.cpp" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="module_info.h" />
     <ClInclude Include="process_checker.h" />
+    <ClInclude Include="time_info.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>

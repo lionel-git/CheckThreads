@@ -1,2 +1,10 @@
-// recup thread infos + delta time
-// filtrer les threads avec delta_time percent > seuil
+* recup thread infos + delta time
+
+ filtrer les threads avec delta_time percent > seuil
+
+Checker si call thread snapshot necessaire (nouveau thread?) : oui
+
+Tester sur program manage
+
+Revoir archi, structure a updater entre 2 checks (threas snashot, modules, symbols)
+=> mettre options

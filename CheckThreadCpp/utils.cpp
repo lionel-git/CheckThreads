@@ -22,3 +22,4 @@ utils::check_error(const std::string& msg)
     // Display the message
     std::cout << "   WARNING: " << msg << " failed with error " << eNum << " (" << sys_msg << ")" << std::endl;
 }
+

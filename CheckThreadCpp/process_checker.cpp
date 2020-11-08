@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <TlHelp32.h>
 #include <iostream>
+#include <sstream>
 
 #include "utils.h"
 
@@ -84,28 +85,34 @@ void process_checker::list_threads(int process_pid)
         utils::check_error("SymInitialize");
     }
 
-    // Fill in the size of the structure before using it. 
-    THREADENTRY32 te32;
-    te32.dwSize = sizeof(THREADENTRY32);
-
-    // Retrieve information about the first thread,
-    // and exit if unsuccessful
-    if (!Thread32First(_handle_thread_snap, &te32))
+    for (int i = 0; i < 100; i++)
     {
-       utils::check_error("Thread32First"); // show cause of failure
-       return;
-    }
+        std::cout << std::endl;
+        // Fill in the size of the structure before using it. 
+        THREADENTRY32 te32;
+        memset(&te32, 0, sizeof(THREADENTRY32));
+        te32.dwSize = sizeof(THREADENTRY32);
 
-    do
-    {
-        if (te32.th32OwnerProcessID == process_pid)
+        // Retrieve information about the first thread,
+        // and exit if unsuccessful
+        if (!Thread32First(_handle_thread_snap, &te32))
         {
-            std::cout << "=============================" << std::endl;
-            std::cout << "ThreadId: " << te32.th32ThreadID << std::endl;
-            check_thread(te32.th32ThreadID, handle_process);
+            utils::check_error("Thread32First"); // show cause of failure
+            return;
         }
-    } 
-    while (Thread32Next(_handle_thread_snap, &te32));
+
+        do
+        {
+            if (te32.th32OwnerProcessID == process_pid)
+            {
+                std::cout << "=============================" << std::endl;
+                std::cout << "ThreadId: " << te32.th32ThreadID << std::endl;
+                check_thread(te32.th32ThreadID, handle_process);
+            }
+        } while (Thread32Next(_handle_thread_snap, &te32));
+
+        Sleep(2000);
+    }
 }
 
 void process_checker::check_thread(int thread_id, HANDLE handle_process)
@@ -118,11 +125,36 @@ void process_checker::check_thread(int thread_id, HANDLE handle_process)
     }
     std::cout << "Thread open is ok: " << handle_thread << std::endl;
     
+    FILETIME ft_creation_time;
+    FILETIME ft_exit_time;
+    FILETIME ft_kernel_time;
+    FILETIME ft_user_time;
+    if (!GetThreadTimes(handle_thread, &ft_creation_time, &ft_exit_time, &ft_kernel_time, &ft_user_time))
+    {
+        utils::check_error("Error getting thread info");
+    }
+    time_info t_info(ft_kernel_time, ft_user_time);
+    
+	auto it = _thread_times.find(thread_id);
+    if (it != _thread_times.end())
+    {
+        it->second.update(t_info);
+        std::cout << thread_id << " (U): " << it->second << std::endl;
+        if (it->second.get_usage_percent() < 10.0)
+            return;
+    }
+    else
+    {
+        _thread_times.insert(std::make_pair(thread_id, t_info));
+        std::cout << thread_id << " (I): " << t_info << std::endl;
+        return;
+    }
+
     CONTEXT c;
     memset(&c, 0, sizeof(c));
     c.ContextFlags = CONTEXT_ALL;
 
-    if (SuspendThread(handle_thread) == -1)
+    if (SuspendThread(handle_thread) == (DWORD)(-1))
     {
         utils::check_error("SuspendThread");
     }   
@@ -163,14 +195,12 @@ void process_checker::check_thread(int thread_id, HANDLE handle_process)
         //std::cout << std::dec;
 
         auto module_ptr = get_module(frame.AddrPC.Offset);
-       /* if (module_ptr != nullptr)
+       /*if (module_ptr != nullptr)
         {
             std::cout << std::hex;
             std::cout << "Module:" << module_ptr->name << " " << module_ptr->base_address << std::endl;
             std::cout << std::dec;
         }*/
-
-
 
         int maxNameLength = 1024;
         std::unique_ptr<IMAGEHLP_SYMBOL64> p((IMAGEHLP_SYMBOL64*)new char[sizeof(IMAGEHLP_SYMBOL64) + maxNameLength]);
@@ -183,8 +213,12 @@ void process_checker::check_thread(int thread_id, HANDLE handle_process)
         if (SymGetSymFromAddr64(handle_process, frame.AddrPC.Offset, &displacement, p.get()) == false)
         {
             auto last_error = GetLastError();
-            if (last_error!=487)
-                utils::check_error("SymGetSymFromAddr64");
+            if (last_error != 487)
+            {
+                std::ostringstream os;
+                os << "SymGetSymFromAddr64, address = 0x" << std::hex << frame.AddrPC.Offset << " module_ptr = 0x" << module_ptr;
+                utils::check_error(os.str());
+            }
             if (module_ptr != nullptr)
             {
                 std::cout << std::hex;

@@ -8,11 +8,12 @@
 #if INTPTR_MAX != INT64_MAX
 #error Only designed for x64 build
 #endif
+#include "time_info.h"
 
 class process_checker
 {
 	typedef std::map<ULONG64, module_info> map_module_type;
-	typedef std::map<ULONG64, module_info>::iterator map_module_iterator;
+	typedef std::map<int, time_info> map_thread_time_type;
 
 public:
 	process_checker();
@@ -30,4 +31,5 @@ private:
 	HANDLE _handle_process_snap;
 	HANDLE _handle_thread_snap;
 	map_module_type _modules;
+	map_thread_time_type _thread_times;
 };
