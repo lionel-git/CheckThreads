@@ -3,6 +3,11 @@
 #include <TlHelp32.h>
 #include <iostream>
 
+#include <dbghelp.h>
+
+#pragma comment(lib, "psapi.lib")
+#pragma comment(lib, "dbghelp.lib")
+
 process_checker::process_checker()
 {
     _handle_process_snap = INVALID_HANDLE_VALUE;
@@ -63,8 +68,8 @@ process_checker::show_processes(const std::string& filter)
 
 void process_checker::list_threads(int process_pid)
 {
-    HANDLE handle_process = INVALID_HANDLE_VALUE;
-    if (OpenProcess(PROCESS_ALL_ACCESS, false, process_pid) == 0)
+    HANDLE handle_process = OpenProcess(PROCESS_ALL_ACCESS, false, process_pid);
+    if (handle_process == 0)
     {
         check_error("Open process");
     }
@@ -85,6 +90,7 @@ void process_checker::list_threads(int process_pid)
     {
         if (te32.th32OwnerProcessID == process_pid)
         {
+            std::cout << "=============================" << std::endl;
             std::cout << "ThreadId: " << te32.th32ThreadID << std::endl;
             check_thread(te32.th32ThreadID, handle_process);
         }
@@ -94,11 +100,7 @@ void process_checker::list_threads(int process_pid)
 
 void process_checker::check_thread(int thread_id, HANDLE handle_process)
 {
-    // try unwind stack with module + addresse
-    // Cf project1, DumpStackTrace()
-
-
-    HANDLE handle_thread = OpenThread(THREAD_QUERY_INFORMATION | THREAD_GET_CONTEXT |THREAD_ALL_ACCESS, FALSE, thread_id);
+    HANDLE handle_thread = OpenThread(THREAD_ALL_ACCESS, FALSE, thread_id);
     if (handle_thread == 0)
     {
         check_error("Error getting thread handle " + thread_id);
@@ -118,17 +120,44 @@ void process_checker::check_thread(int thread_id, HANDLE handle_process)
     {
         check_error("Get context");
     }
+   
+    std::cout << std::hex;
+    std::cout << "c.ContextFlags = " << c.ContextFlags << std::endl;
+    std::cout << "c.Rip = " << c.Rip << std::endl;
+    std::cout << "c.Rsp = " << c.Rsp << std::endl;
+    std::cout << "c.Rbp = " << c.Rbp << std::endl;
+
+    STACKFRAME64 frame;
+    memset(&frame, 0, sizeof(frame));
+    frame.AddrPC.Offset = c.Rip;
+    frame.AddrPC.Mode = AddrModeFlat;
+    frame.AddrStack.Offset = c.Rsp;
+    frame.AddrStack.Mode = AddrModeFlat;
+    frame.AddrFrame.Offset = c.Rbp;
+    frame.AddrFrame.Mode = AddrModeFlat;
+
+    do
+    {
+
+        // 32 bits: IMAGE_FILE_MACHINE_I386
+        DWORD image_type = IMAGE_FILE_MACHINE_AMD64;
+        if (StackWalk64(image_type, handle_process, handle_thread, &frame, &c, NULL,
+            NULL /*SymFunctionTableAccess64*/,  NULL /*SymGetModuleBase64*/,  NULL) == false)
+        {
+            std::cout << "Error stackwalk" << std::endl;
+        }
+
+        std::cout << std::hex;        
+        std::cout << "frame.AddrPC = " << frame.AddrPC.Mode << " " << frame.AddrPC.Segment << " " << frame.AddrPC.Offset 
+            << " V: " << frame.Virtual << std::endl;
+        std::cout << std::dec;
+    }
+    while (frame.AddrReturn.Offset != 0);
+
     if (ResumeThread(handle_thread) == -1)
     {
         check_error("ResumeThread");
     }
-
-    std::cout << std::hex;
-    std::cout << "c.ContextFlags = " << c.ContextFlags  << std::endl;
-    std::cout << "c.Rip = " << c.Rip << std::endl;
-    std::cout << "c.Rsp = " << c.Rsp << std::endl;
-    std::cout << "c.Rbp = " << c.Rbp << std::endl;
-    std::cout << std::dec;
 
     if (CloseHandle(handle_thread) == 0)
     {
