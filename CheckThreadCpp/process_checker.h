@@ -5,6 +5,10 @@
 #include <windows.h>
 #include "module_info.h"
 
+#if INTPTR_MAX != INT64_MAX
+#error Only designed for x64 build
+#endif
+
 class process_checker
 {
 	typedef std::map<ULONG64, module_info> map_module_type;

@@ -8,7 +8,6 @@ utils::check_error(const std::string& msg)
 {
     DWORD eNum;
     TCHAR sysMsg[256];
-    TCHAR* p;
 
     eNum = GetLastError();
     FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,

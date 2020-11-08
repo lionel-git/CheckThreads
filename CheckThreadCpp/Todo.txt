@@ -1,0 +1,2 @@
+// recup thread infos + delta time
+// filtrer les threads avec delta_time percent > seuil
