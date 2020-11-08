@@ -3,6 +3,8 @@
 #include <TlHelp32.h>
 #include <iostream>
 
+#include "utils.h"
+
 #include <imagehlp.h>
 
 #pragma comment(lib, "psapi.lib")
@@ -15,14 +17,14 @@ process_checker::process_checker()
     _handle_process_snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (_handle_process_snap == INVALID_HANDLE_VALUE)
     {
-        check_error("CreateToolhelp32Snapshot (of processes)");
+        utils::check_error("CreateToolhelp32Snapshot (of processes)");
     }
 
     _handle_thread_snap = INVALID_HANDLE_VALUE;
     _handle_thread_snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
     if (_handle_thread_snap == INVALID_HANDLE_VALUE)
     {
-        check_error("CreateToolhelp32Snapshot (of threads)");
+        utils::check_error("CreateToolhelp32Snapshot (of threads)");
     }
 }
 
@@ -45,7 +47,7 @@ process_checker::show_processes(const std::string& filter)
     // and exit if unsuccessful
     if (!Process32First(_handle_process_snap, &pe32))
     {
-        check_error("Process32First"); // show cause of failure
+        utils::check_error("Process32First"); // show cause of failure
         return;
     }
 
@@ -61,6 +63,7 @@ process_checker::show_processes(const std::string& filter)
             std::cout << "Threads: " << pe32.cntThreads << std::endl;
             std::cout << "Usage: " << pe32.cntUsage << std::endl;
             std::cout << "==" << std::endl;
+            show_modules(pe32.th32ProcessID);
             list_threads(pe32.th32ProcessID);
         }
     } 
@@ -72,13 +75,13 @@ void process_checker::list_threads(int process_pid)
     HANDLE handle_process = OpenProcess(PROCESS_ALL_ACCESS, false, process_pid);
     if (handle_process == 0)
     {
-        check_error("Open process");
+        utils::check_error("Open process");
         return;
     }
 
     if (!SymInitialize(handle_process, "C:\\Program Files(x86)\\Arena\\Engines\\Stockfish", true))
     {
-        check_error("SymInitialize");
+        utils::check_error("SymInitialize");
     }
 
     // Fill in the size of the structure before using it. 
@@ -89,7 +92,7 @@ void process_checker::list_threads(int process_pid)
     // and exit if unsuccessful
     if (!Thread32First(_handle_thread_snap, &te32))
     {
-       check_error("Thread32First"); // show cause of failure
+       utils::check_error("Thread32First"); // show cause of failure
        return;
     }
 
@@ -110,7 +113,7 @@ void process_checker::check_thread(int thread_id, HANDLE handle_process)
     HANDLE handle_thread = OpenThread(THREAD_ALL_ACCESS, FALSE, thread_id);
     if (handle_thread == 0)
     {
-        check_error("Error getting thread handle " + thread_id);
+        utils::check_error("Error getting thread handle " + thread_id);
         return;
     }
     std::cout << "Thread open is ok: " << handle_thread << std::endl;
@@ -121,11 +124,11 @@ void process_checker::check_thread(int thread_id, HANDLE handle_process)
 
     if (SuspendThread(handle_thread) == -1)
     {
-        check_error("SuspendThread");
+        utils::check_error("SuspendThread");
     }   
     if (GetThreadContext(handle_thread, &c) == 0)
     {
-        check_error("Get context");
+        utils::check_error("Get context");
     }
    
     std::cout << std::hex;
@@ -154,60 +157,120 @@ void process_checker::check_thread(int thread_id, HANDLE handle_process)
             std::cout << "Error stackwalk" << std::endl;
         }
 
-        std::cout << std::hex;        
-        std::cout << "frame.AddrPC = " << /*frame.AddrPC.Mode << " " << frame.AddrPC.Segment << " " <<*/ frame.AddrPC.Offset 
-            /*<< " V: " << frame.Virtual*/ << std::endl;
-        std::cout << std::dec;
+        //std::cout << std::hex;        
+        //std::cout << "frame.AddrPC = " << /*frame.AddrPC.Mode << " " << frame.AddrPC.Segment << " " <<*/ frame.AddrPC.Offset 
+        //    /*<< " V: " << frame.Virtual*/ ;
+        //std::cout << std::dec;
+
+        auto module_ptr = get_module(frame.AddrPC.Offset);
+       /* if (module_ptr != nullptr)
+        {
+            std::cout << std::hex;
+            std::cout << "Module:" << module_ptr->name << " " << module_ptr->base_address << std::endl;
+            std::cout << std::dec;
+        }*/
+
+
 
         int maxNameLength = 1024;
-        IMAGEHLP_SYMBOL64* p = (IMAGEHLP_SYMBOL64 *)new char[sizeof(IMAGEHLP_SYMBOL64) + maxNameLength];
-        memset(p, 0, sizeof(IMAGEHLP_SYMBOL64) + maxNameLength);
+        std::unique_ptr<IMAGEHLP_SYMBOL64> p((IMAGEHLP_SYMBOL64*)new char[sizeof(IMAGEHLP_SYMBOL64) + maxNameLength]);
+        memset(p.get(), 0, sizeof(IMAGEHLP_SYMBOL64) + maxNameLength);
         p->MaxNameLength = maxNameLength;
         p->SizeOfStruct = sizeof(IMAGEHLP_SYMBOL64);        
         DWORD64 displacement = 0;
-        if (SymGetSymFromAddr64(handle_process, frame.AddrPC.Offset, &displacement, p) == false)
+
+        std::cout << "\t";
+        if (SymGetSymFromAddr64(handle_process, frame.AddrPC.Offset, &displacement, p.get()) == false)
         {
-            check_error("SymGetSymFromAddr64");
+            auto last_error = GetLastError();
+            if (last_error!=487)
+                utils::check_error("SymGetSymFromAddr64");
+            if (module_ptr != nullptr)
+            {
+                std::cout << std::hex;
+                std::cout << module_ptr->name << "+0x" << frame.AddrPC.Offset - module_ptr->base_address << std::endl;
+                std::cout << std::dec;
+            }
         }
         else
         {
-            std::cout << "Name: " << p->Name;
+            if (module_ptr != nullptr)
+                std::cout << module_ptr->name << "!";
+            std::cout << p->Name;
             std::cout << std::hex;
             std::cout << "+0x" << frame.AddrPC.Offset - p->Address << std::endl;
             std::cout << std::dec;
         }
-        delete [] p;
     }
     while (frame.AddrReturn.Offset != 0);
 
     if (ResumeThread(handle_thread) == -1)
     {
-        check_error("ResumeThread");
+        utils::check_error("ResumeThread");
     }
 
     if (CloseHandle(handle_thread) == 0)
     {
-        check_error("Error closing handle");
+        utils::check_error("Error closing handle");
     }
 }
 
-void
-process_checker::check_error(const std::string& msg)
+void process_checker::show_modules(int process_id)
 {
-    DWORD eNum;
-    TCHAR sysMsg[256];
-    TCHAR* p;
+    // Take a snapshot of all modules in the specified process.
+    HANDLE hModuleSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, process_id);
+    if (hModuleSnap == INVALID_HANDLE_VALUE)
+    {
+        utils::check_error("CreateToolhelp32Snapshot (of modules)");
+        return;
+    }
 
-    eNum = GetLastError();
-    FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL, eNum,
-        MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), // Default language
-        sysMsg, 256, NULL);
+    // Set the size of the structure before using it.
+    MODULEENTRY32 me32;
+    me32.dwSize = sizeof(MODULEENTRY32);
 
-	std::string sys_msg(sysMsg);
-	if (sys_msg.length() > 2)
-		sys_msg = sys_msg.substr(0, sys_msg.length() - 2);
+    // Retrieve information about the first module,
+    // and exit if unsuccessful
+    if (!Module32First(hModuleSnap, &me32))
+    {
+        utils::check_error("Module32First");  // show cause of failure
+        CloseHandle(hModuleSnap);           // clean the snapshot object
+        return;
+    }
 
-    // Display the message
-    std::cout << "   WARNING: " << msg << " failed with error " << eNum << " (" << sys_msg << ")" << std::endl;
+    // Now walk the module list of the process,
+    // and display information about each module
+    do
+    {
+        std::cout << "MODULE NAME:   " << me32.szModule << std::endl;
+        std::cout << "     Executable     = " << me32.szExePath << std::endl;
+        std::cout << "     Process ID     = " << me32.th32ProcessID << std::endl;
+        std::cout << std::hex;
+        std::cout << "     Ref count (g)  = " << me32.GlblcntUsage << std::endl;
+        std::cout << "     Ref count (p)  = " << me32.ProccntUsage << std::endl;
+        std::cout << "     Base address   = " << (ULONG64)me32.modBaseAddr << std::endl;
+        std::cout << "     Base size      = " << me32.modBaseSize << std::endl;
+        std::cout << std::dec;
+
+        module_info module_info;
+        module_info.name = me32.szModule;
+        module_info.base_address = (ULONG64)me32.modBaseAddr;
+        module_info.module_size = me32.modBaseSize;
+        module_info.executable_path = me32.szExePath;
+        module_info.process_id = me32.th32ProcessID;
+        _modules[module_info.base_address]= module_info;
+    } while (Module32Next(hModuleSnap, &me32));
+
+    CloseHandle(hModuleSnap);
+}
+
+const module_info*
+process_checker::get_module(unsigned long long address)
+{
+	for (auto it = _modules.begin(); it != _modules.end(); ++it)
+	{
+		if (it->second.base_address <= address && address <= it->second.base_address + it->second.module_size)
+			return &(it->second);
+	}
+	return nullptr;
 }
