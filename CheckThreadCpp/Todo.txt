@@ -8,3 +8,6 @@ Tester sur program manage
 
 Revoir archi, structure a updater entre 2 checks (threas snashot, modules, symbols)
 => mettre options
+
+Rajouter un flag dans la structure time_info pour detecter les threads qui disparaissent
+remettre à false + true sur update

@@ -13,7 +13,7 @@ namespace ExampleWithThread
             for (int i = 0; i < 10000; i++)
             {
                 double s = 0.0;
-                for (double x = 0; x < 100.0; x += 0.01)
+                for (double x = 0; x < 100.0; x += 0.00000001)
                     s += Math.Sin(x);
                 Thread.Sleep(100);
             }
@@ -24,7 +24,7 @@ namespace ExampleWithThread
             Console.WriteLine("Hello World!");
 
             List<Task> list = new List<Task>();
-            for (int i=0;i<5;i++)
+            for (int i=0;i<3;i++)
             {
                 list.Add(Task.Run(() => DoSomeWork()));
             }

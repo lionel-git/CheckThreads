@@ -61,6 +61,7 @@ namespace CheckThreads
                 Console.WriteLine("===========");
                 var process = Process.GetProcessById(_pid);
                 DisplayDynamicProcessInfos(process);
+                Console.WriteLine($"Thread count: {process.Threads.Count}");
                 Console.WriteLine("===");
                 var currentThreads = new SortedDictionary<int, ThreadInfo>();
                 for (int i = 0; i < process.Threads.Count; i++)
@@ -70,9 +71,18 @@ namespace CheckThreads
                         threadInfo.DiffPrevious(previous);
                     currentThreads.Add(threadInfo.Id, threadInfo);
                 }
+                var states = new SortedDictionary<System.Diagnostics.ThreadState, int>();
                 foreach (var threadInfo in currentThreads)
                 {
                     Console.WriteLine(threadInfo.Value);
+                    if (states.ContainsKey(threadInfo.Value.ThreadState))
+                        states[threadInfo.Value.ThreadState]++;
+                    else
+                        states.Add(threadInfo.Value.ThreadState, 1);
+                }
+                foreach (var state in states)
+                {
+                    Console.WriteLine($"{state.Key}: {state.Value}");
                 }
                 
                 previousThreads = currentThreads;

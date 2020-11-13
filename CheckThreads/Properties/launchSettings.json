@@ -2,7 +2,7 @@
   "profiles": {
     "CheckThreads": {
       "commandName": "Project",
-      "commandLineArgs": "stockfish_20110419_x64_bmi2"
+      "commandLineArgs": " ExampleWithThread stockfish_20110419_x64_bmi2"
     }
   }
 }

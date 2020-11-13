@@ -8,12 +8,21 @@ namespace CheckThreads
         {
             try
             {
+                ThreadInfo.DisplayState = true;
                 if (args.Length > 0)
                 {
-                    ThreadInfo.DisplayState = true;
-                    var threadChecker = new ThreadChecker(args[0]);
-                    threadChecker.Check();
-
+                    foreach (var arg in args)
+                    {
+                        try
+                        {
+                            var threadChecker = new ThreadChecker(arg);
+                            threadChecker.Check();
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine($"{arg}: {e.Message}");
+                        }
+                    }
                 }
                 else
                     Console.WriteLine("Syntax: prg <pid> or <program name>");
